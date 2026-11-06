@@ -341,6 +341,7 @@ func Run(configPath string, portOverride int) error {
 					m.Combo("").Get(repo.SettingsCollaboration).Post(repo.SettingsCollaborationPost)
 					m.Post("/access_mode", repo.ChangeCollaborationAccessMode)
 					m.Post("/delete", repo.DeleteCollaboration)
+					m.Post("/roster", repo.SettingsCollaborationRosterPost)
 				})
 				m.Group("/branches", func() {
 					m.Get("", repo.SettingsBranches)

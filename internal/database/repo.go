@@ -1694,6 +1694,7 @@ func DeleteRepository(ownerID, repoID int64) error {
 		&Milestone{RepoID: repoID},
 		&Release{RepoID: repoID},
 		&Collaboration{RepoID: repoID},
+		&CollaborationRoster{RepoID: repoID},
 		&PullRequest{BaseRepoID: repoID},
 		&ProtectBranch{RepoID: repoID},
 		&ProtectBranchWhitelist{RepoID: repoID},

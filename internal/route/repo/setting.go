@@ -394,7 +394,82 @@ func SettingsCollaboration(c *context.Context) {
 	}
 	c.Data["Collaborators"] = users
 
+	rosterContent, err := c.Repo.Repository.GetCollaborationRoster()
+	if err != nil {
+		c.Error(err, "get collaborator roster")
+		return
+	}
+	c.Data["RosterContent"] = rosterContent
+
 	c.Success(tmplRepoSettingsCollaboration)
+}
+
+func rosterValidationMessage(c *context.Context, verr *database.RosterValidationError) string {
+	switch verr.Kind {
+	case database.RosterErrorInvalidEntry:
+		return c.Tr("repo.settings.collaboration.roster_error_invalid_entry", verr.Line)
+	case database.RosterErrorInvalidMode:
+		return c.Tr("repo.settings.collaboration.roster_error_invalid_mode", verr.Line, verr.Token)
+	case database.RosterErrorDuplicateUser:
+		return c.Tr("repo.settings.collaboration.roster_error_duplicate_user", verr.Name, verr.FirstLine, verr.Line)
+	case database.RosterErrorUserNotExist:
+		return c.Tr("repo.settings.collaboration.roster_error_user_not_exist", verr.Name)
+	case database.RosterErrorUserIsOrganization:
+		return c.Tr("repo.settings.collaboration.roster_error_user_is_organization", verr.Name)
+	case database.RosterErrorUserIsOwner:
+		return c.Tr("repo.settings.collaboration.roster_error_user_is_owner", verr.Name)
+	default:
+		return c.Tr("repo.settings.collaboration.roster_error_generic")
+	}
+}
+
+func SettingsCollaborationRosterPost(c *context.Context) {
+	c.Data["Title"] = c.Tr("repo.settings")
+	c.Data["PageIsSettingsCollaboration"] = true
+
+	content := c.Query("roster")
+	result, err := c.Repo.Repository.ApplyCollaborationRoster(c.User.ID, content)
+	if err != nil {
+		if verr, ok := database.IsRosterValidationError(err); ok {
+			users, err := c.Repo.Repository.GetCollaborators()
+			if err != nil {
+				c.Error(err, "get collaborators")
+				return
+			}
+			c.Data["Collaborators"] = users
+			c.Data["RosterContent"] = content
+			c.RenderWithErr(rosterValidationMessage(c, verr), http.StatusBadRequest, tmplRepoSettingsCollaboration, nil)
+			return
+		}
+		c.Error(err, "apply collaborator roster")
+		return
+	}
+
+	if conf.User.EnableEmailNotification {
+		for _, name := range result.Added {
+			u, err := database.Handle.Users().GetByUsername(c.Req.Context(), name)
+			if err != nil {
+				log.Error("Failed to get new collaborator %q: %v", name, err)
+				continue
+			}
+			if err = email.SendCollaboratorMail(database.NewMailerUser(u), database.NewMailerUser(c.User), database.NewMailerRepo(c.Repo.Repository)); err != nil {
+				log.Error("Failed to send collaborator mail: %v", err)
+			}
+		}
+	}
+
+	message := c.Tr(
+		"repo.settings.collaboration.roster_success_summary",
+		len(result.Added), len(result.ModeChanged), len(result.Removed),
+	)
+	if len(result.SkippedManual) > 0 {
+		message += " " + c.Tr(
+			"repo.settings.collaboration.roster_success_skipped_manual",
+			strings.Join(result.SkippedManual, ", "),
+		)
+	}
+	c.Flash.Success(message)
+	c.Redirect(c.Repo.RepoLink + "/settings/collaboration")
 }
 
 func SettingsCollaborationPost(c *context.Context) {

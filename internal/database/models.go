@@ -50,7 +50,7 @@ func init() {
 
 	legacyTables = append(legacyTables,
 		new(User), new(PublicKey), new(TwoFactor), new(TwoFactorRecoveryCode),
-		new(Repository), new(DeployKey), new(Collaboration), new(Upload),
+		new(Repository), new(DeployKey), new(Collaboration), new(CollaborationRoster), new(Upload),
 		new(Watch), new(Star),
 		new(Issue), new(PullRequest), new(Comment), new(Attachment), new(IssueUser),
 		new(Label), new(IssueLabel), new(Milestone),
